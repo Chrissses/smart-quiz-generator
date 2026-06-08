@@ -1,0 +1,144 @@
+/* ── 暗黑主题（唯一主题） ── */
+:root {
+  --bg-page: #0f0f1a;
+  --bg-card: #1a1a2e;
+  --border-card: #2d2d44;
+  --text-primary: #e4e4ec;
+  --text-caption: #b0b0c8;
+  --text-alert: #e4e4ec;
+  --bg-explanation: #151530;
+  --border-explanation: #6b9fff;
+  --badge-correct-bg: #059669;
+  --badge-correct-text: #ffffff;
+  --badge-wrong-bg: #dc2626;
+  --badge-wrong-text: #ffffff;
+  --link-color: #6b9fff;
+}
+
+/* ── 页面背景 ── */
+.stApp { background: #0f0f1a !important; }
+.stApp header { background: #0f0f1a !important; }
+section[data-testid="stSidebar"] { background: #14142a !important; }
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span { color: #d0d0e0 !important; }
+
+.st-bq, .st-cr, .st-cs { color: #c0c0d0 !important; }
+
+div[data-testid="stMetric"] { background: #1a1a2e; padding: 0.5rem 1rem; border-radius: 8px; }
+div[data-testid="stMetric"] label,
+div[data-testid="stMetric"] div { color: #e4e4ec !important; }
+
+.stAlert { background: #1a1a2e !important; }
+.stAlert p { color: #e4e4ec !important; }
+div.st-expander { background: #1a1a2e; border-color: #2d2d44; border-radius: 8px; }
+
+/* ── 全局字体 ── */
+html, body, .stApp, .stApp p, .stMarkdown p, .stText,
+div[data-testid="stMarkdownContainer"] p {
+  color: var(--text-primary) !important;
+  font-size: 1rem !important;
+  line-height: 1.6 !important;
+}
+
+h1 {
+  font-size: 1.8rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  letter-spacing: 0.5px;
+}
+
+.stMarkdown p {
+  font-size: 1rem !important;
+  color: var(--text-primary) !important;
+}
+
+/* ── 上传区 ── */
+div[data-testid="stFileUploader"] label p {
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+}
+div[data-testid="stFileUploader"] small,
+div[data-testid="stFileUploader"] span {
+  font-size: 0.9rem !important;
+  color: var(--text-caption) !important;
+}
+
+/* ── Metric ── */
+div[data-testid="stMetric"] label {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+}
+div[data-testid="stMetric"] div {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+}
+
+/* ── 侧边栏标签 ── */
+.stSelectbox label, .stRadio label, .stSlider label, .stTextInput label {
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+}
+
+/* ── 题目卡片 ── */
+.question-card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-card);
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+}
+
+.question-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  color: var(--text-primary);
+}
+
+.correct-badge {
+  display: inline-block;
+  background: var(--badge-correct-bg);
+  color: var(--badge-correct-text);
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.wrong-badge {
+  display: inline-block;
+  background: var(--badge-wrong-bg);
+  color: var(--badge-wrong-text);
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.explanation-box {
+  background: var(--bg-explanation);
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--border-explanation);
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.stCaptionText {
+  color: var(--text-caption) !important;
+  font-size: 0.85rem !important;
+}
+
+.stAlert p {
+  color: var(--text-alert) !important;
+}
+
+a {
+  color: var(--link-color) !important;
+}

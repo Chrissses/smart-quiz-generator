@@ -3,13 +3,17 @@
 上传文档，AI 自动生成选择题/判断题/填空题，在线作答并查看解析。
 """
 import os
+import queue
 import threading
 import time
+from typing import Any
 
 from dotenv import load_dotenv
 import streamlit as st
 
 load_dotenv()
+
+_gen_queue: queue.Queue = queue.Queue()
 
 from utils.file_parser import parse_file
 from utils.question_gen import Question, generate_questions
@@ -24,15 +28,13 @@ def _cached_parse_file(file_bytes: bytes, filename: str) -> str:
 
 
 # ── 后台出题 ─────────────────────────────────────────────
-def _launch_generation(**kwargs):
+def _launch_generation(**kwargs: Any) -> None:
     def _worker():
         try:
             questions = generate_questions(**kwargs)
-            st.session_state.gen_result = questions
+            _gen_queue.put(("result", questions))
         except Exception as e:
-            st.session_state.gen_error = str(e)
-        finally:
-            st.session_state.generating = False
+            _gen_queue.put(("error", str(e)))
     threading.Thread(target=_worker, daemon=True).start()
 
 
@@ -51,9 +53,7 @@ defaults = {
     "questions": (list[Question], []),
     "submitted": False,
     "generating": False,
-    "gen_result": None,
     "gen_error": None,
-    "cancel_generation": False,
     "quiz_start_time": None,
 }
 for k, v in defaults.items():
@@ -134,13 +134,11 @@ if uploaded_file is not None:
 # ── 生成按钮 ────────────────────────────────────────────
 col_left, _, col_right = st.columns([1, 2, 1])
 
-def _do_generate():
+def _do_generate() -> None:
     st.session_state.generating = True
     st.session_state.submitted = False
     st.session_state.questions = []
-    st.session_state.gen_result = None
     st.session_state.gen_error = None
-    st.session_state.cancel_generation = False
     _launch_generation(
         text=st.session_state.extracted_text,
         num_questions=num_questions,
@@ -175,40 +173,42 @@ with col_right:
 if st.session_state.generating and st.session_state.extracted_text:
     status_placeholder = st.status("🤖 AI 正在出题中...", expanded=True)
 
-    if st.session_state.gen_result is not None:
-        questions = st.session_state.gen_result
-        status_placeholder.update(label=f"✅ 出题完成！共生成 {len(questions)} 道题",
-                                  state="complete", expanded=False)
-        st.session_state.questions = questions
-        st.session_state.gen_result = None
-        st.session_state.generating = False
-        st.session_state.quiz_start_time = None
-        st.rerun()
+    try:
+        msg_type, payload = _gen_queue.get_nowait()
+        if msg_type == "result":
+            questions = payload
+            status_placeholder.update(label=f"✅ 出题完成！共生成 {len(questions)} 道题",
+                                      state="complete", expanded=False)
+            st.session_state.questions = questions
+            st.session_state.generating = False
+            st.session_state.quiz_start_time = None
+            st.rerun()
+        elif msg_type == "error":
+            err = payload
+            st.session_state.gen_error = err
+            status_placeholder.update(label=f"❌ 出题失败: {err}", state="error")
+    except queue.Empty:
+        pass
 
-    elif st.session_state.gen_error is not None:
-        err = st.session_state.gen_error
-        status_placeholder.update(label=f"❌ 出题失败: {err}", state="error")
+    if st.session_state.gen_error is not None:
         col_r1, col_r2 = st.columns([1, 3])
         with col_r1:
             if st.button("🔄 重试", key="retry_gen", use_container_width=True):
                 st.session_state.gen_error = None
-                st.session_state.gen_result = None
                 _do_generate()
                 st.rerun()
         with col_r2:
             st.caption("建议检查 API Key 是否正确、网络是否通畅")
-
-    elif st.button("取消", key="cancel_gen"):
-        st.session_state.generating = False
-        st.session_state.gen_result = None
-        st.session_state.gen_error = None
-        st.rerun()
     else:
-        # 线程仍在运行 → 用 <meta> 自动刷新（浏览器原生行为，不依赖 JS）
-        st.markdown(
-            '<meta http-equiv="refresh" content="3">',
-            unsafe_allow_html=True,
-        )
+        if st.button("取消", key="cancel_gen"):
+            st.session_state.generating = False
+            st.rerun()
+        else:
+            # 线程仍在运行 → 用 <meta> 自动刷新（浏览器原生行为，不依赖 JS）
+            st.markdown(
+                '<meta http-equiv="refresh" content="3">',
+                unsafe_allow_html=True,
+            )
 
 # ── 题目展示和作答 ──────────────────────────────────────
 questions = st.session_state.questions

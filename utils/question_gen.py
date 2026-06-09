@@ -137,6 +137,7 @@ def generate_questions(
     client = OpenAI(
         api_key=api_key,
         base_url=base_url,
+        timeout=120.0,
     )
 
     lang_instruction = (
@@ -217,9 +218,11 @@ def _repair_json(raw: str) -> str:
     repaired = raw.strip()
     # 1. 移除尾随逗号（数组/对象最后一个元素后的逗号）
     repaired = re.sub(r",\s*([\]}])", r"\1", repaired)
-    # 2. 单引号键/值转双引号（保留字符串内的转义）
-    repaired = re.sub(r"(?<!\\)'(?=[^:]+:)", '"', repaired)
-    repaired = re.sub(r":\s*'(.*?)'(?=[,}\]])", lambda m: ': "' + m.group(1) + '"', repaired)
+    # 2. 单引号键值转双引号
+    # 先把 'key': 整体替换为 "key":
+    repaired = re.sub(r"(?<!\\)'([^']*)'\s*:", r'"\1":', repaired)
+    # 再把 : 'value' 替换为 : "value"
+    repaired = re.sub(r":\s*'(.*?)'(?=[,}\]])", r': "\1"', repaired)
     # 3. 移除注释（// 或 # 风格，不在字符串内的）
     repaired = re.sub(r"(?<!:)\s*//[^\n]*", "", repaired)
     repaired = re.sub(r"(?<!:)\s*#[^\n]*", "", repaired)

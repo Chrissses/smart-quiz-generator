@@ -102,6 +102,7 @@ if __name__ == "__main__":
             "streamlit",
             "run", "app.py",
             "--server.headless", "true",
+            "--server.address", "127.0.0.1",
             f"--server.port", str(port),
             "--global.developmentMode", "false",
             "--browser.gatherUsageStats", "false",

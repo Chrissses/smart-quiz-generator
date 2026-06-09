@@ -2,6 +2,7 @@
 侧边栏渲染模块 — 服务商选择、API Key、题目配置、暗黑切换
 """
 import os
+from dotenv import dotenv_values
 import streamlit as st
 
 
@@ -12,21 +13,10 @@ def _env_path() -> str:
 
 def load_api_key() -> str:
     """从 .env 文件加载上一次保存的 API Key"""
-    env_file = _env_path()
-    if not os.path.exists(env_file):
-        return ""
-    try:
-        with open(env_file, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("QUIZ_API_KEY="):
-                    return line.split("=", 1)[1].strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return ""
+    return dotenv_values(_env_path()).get("QUIZ_API_KEY", "")
 
 
-def save_api_key(key: str):
+def save_api_key(key: str) -> None:
     """将 API Key 持久化写入 .env 文件"""
     if not key.strip():
         return

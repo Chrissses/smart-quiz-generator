@@ -217,6 +217,18 @@ with st.sidebar:
         help="1=非常简单（原文直给）  3=适中  5=困难（深层推理）",
     )
 
+    # 学科
+    subject = st.selectbox(
+        "学科方向",
+        options=[
+            "不限（通用）", "数学", "物理", "化学", "生物",
+            "历史", "地理", "政治/法律", "英语/语言",
+            "计算机/编程", "文学/语文", "医学/健康", "经济/金融",
+        ],
+        index=0,
+        help="选择学科后 AI 会按该学科风格出题（公式、案例、术语等）",
+    )
+
     # 语言
     language = st.radio("题目语言", options=["中文", "English"], index=0)
 
@@ -337,6 +349,7 @@ with col_left:
                 text=st.session_state.extracted_text,
                 num_questions=num_questions,
                 difficulty=difficulty,
+                subject=subject,
                 api_key=api_key or None,
                 base_url=base_url or None,
                 model=model,
@@ -358,6 +371,7 @@ with col_right:
                 text=st.session_state.extracted_text,
                 num_questions=num_questions,
                 difficulty=difficulty,
+                subject=subject,
                 api_key=api_key or None,
                 base_url=base_url or None,
                 model=model,

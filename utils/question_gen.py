@@ -103,6 +103,7 @@ def generate_questions(
     text: str,
     num_questions: int = 5,
     difficulty: int = 3,
+    subject: str = "不限（通用）",
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
     model: str = "gpt-4o-mini",
@@ -115,6 +116,7 @@ def generate_questions(
         text: 输入文本内容
         num_questions: 生成题目数量 (1-20)
         difficulty: 难度级别 (1-5, 1=最简单, 5=最困难)
+        subject: 学科方向（影响出题风格和术语使用）
         api_key: OpenAI API Key (None 则从环境变量读取)
         base_url: API 地址 (用于代理或国内兼容接口)
         model: 模型名称
@@ -154,6 +156,12 @@ def generate_questions(
         else "请混合使用选择题(choice)、判断题(true_false)和填空题(fill_blank)三种题型，每种题型至少出 1 道，让题目类型丰富多样。"
     )
 
+    # 学科指令
+    if subject != "不限（通用）":
+        subject_instruction = f"【学科方向：{subject}】请按{subject}学科风格出题，使用该学科的专业术语和常见题型。"
+    else:
+        subject_instruction = ""
+
     # 智能截断：短文本全量用，长文本取头+中+尾的段落采样
     MAX_CHARS = 8000
     if len(text) <= MAX_CHARS:
@@ -177,6 +185,7 @@ def generate_questions(
         f"以下是一段文本内容，请根据它生成 {num_questions} 道题。\n\n"
         f"{difficulty_instruction}\n\n"
         f"{type_instruction}\n\n"
+        f"{subject_instruction}\n\n"
         f"{lang_instruction}\n\n"
         f"--- 文本开始 ---\n"
         f"{truncated}\n"

@@ -7,6 +7,9 @@ import io
 import time
 import streamlit as st
 
+import difflib
+from typing import Any, Optional
+
 from utils.question_gen import Question
 
 
@@ -26,10 +29,19 @@ def grade_fill_blank(q: Question, user_answer: str) -> tuple[bool, str, str]:
         return False, "未作答", q.correct_answer
     normalized_user = user_answer.strip().lower()
     normalized_correct = q.correct_answer.strip().lower()
-    if normalized_correct and (
-        normalized_correct in normalized_user or normalized_user in normalized_correct
-    ):
+    if normalized_user == normalized_correct:
         return True, user_answer, q.correct_answer
+    ratio = difflib.SequenceMatcher(None, normalized_user, normalized_correct).ratio()
+    if ratio >= 0.8:
+        return True, user_answer, q.correct_answer
+    if q.acceptable_answers:
+        for alt in q.acceptable_answers:
+            alt_normalized = alt.strip().lower()
+            if normalized_user == alt_normalized:
+                return True, user_answer, q.correct_answer
+            alt_ratio = difflib.SequenceMatcher(None, normalized_user, alt_normalized).ratio()
+            if alt_ratio >= 0.8:
+                return True, user_answer, q.correct_answer
     return False, user_answer, q.correct_answer
 
 
@@ -67,7 +79,7 @@ def _export_csv(
 
 def _render_export_button(questions: list[Question],
                           user_answers: dict[int, str],
-                          grades: dict[int, tuple[bool, str, str]]):
+                          grades: dict[int, tuple[bool, str, str]]) -> None:
     """渲染导出按钮（CSV 下载）。"""
     csv_data = _export_csv(questions, user_answers, grades)
     b64 = base64.b64encode(csv_data).decode()
@@ -77,7 +89,7 @@ def _render_export_button(questions: list[Question],
 
 # ── 计时 ─────────────────────────────────────────────────
 
-def _render_timer(start_ts: float):
+def _render_timer(start_ts: float) -> None:
     """渲染计时器 UI。"""
     elapsed = max(0, time.time() - start_ts)
     mins, secs = divmod(int(elapsed), 60)
@@ -91,7 +103,7 @@ def render_questions(
     submitted: bool,
     grades: dict[int, tuple[bool, str, str]],
     user_answers: dict[int, str],
-):
+) -> None:
     """渲染题目列表和作答区域，含编辑/删除功能。
 
     Args:
@@ -157,7 +169,7 @@ def render_questions(
                         if opt.startswith(prev_val):
                             prev_index = oi
                             break
-                    user_answers[i] = st.radio(
+                    st.radio(
                         "你的答案",
                         options=options_display,
                         index=prev_index,
@@ -165,9 +177,9 @@ def render_questions(
                         label_visibility="collapsed",
                     )
                 else:
-                    user_answers[i] = st.text_input(
+                    st.text_input(
                         "你的答案",
-                        value=user_answers.get(i, ""),
+                        value=st.session_state.get(f"ans_{i}", ""),
                         key=f"ans_{i}",
                         label_visibility="collapsed",
                         placeholder="请输入填空答案...",
@@ -178,7 +190,7 @@ def render_questions(
 
 def render_results(questions: list[Question],
                    user_answers: dict[int, str],
-                   grades: dict[int, tuple[bool, str, str]]):
+                   grades: dict[int, tuple[bool, str, str]]) -> None:
     """渲染批改结果统计和导出按钮。
 
     Args:

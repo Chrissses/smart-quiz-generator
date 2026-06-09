@@ -35,7 +35,7 @@ pyinstaller --onedir --name="智能出题系统" --noconsole ^
 
 ### 方式三：直接下载 exe
 
-从 [Releases]() 页面下载最新版本，双击运行即可。
+从 [Releases](https://github.com/Chrissses/smart-quiz-generator/releases) 页面下载最新版本，双击运行即可。
 
 ## 🔧 使用说明
 

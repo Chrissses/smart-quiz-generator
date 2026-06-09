@@ -52,15 +52,56 @@ class TestParseFile:
         assert "Paragraph two" in result
 
     def test_pdf_parsing(self):
-        """Test with a sample that pdfplumber can handle."""
+        """Test PDF parsing with a minimal valid PDF constructed as raw bytes."""
         try:
             import pdfplumber
         except ImportError:
             pytest.skip("pdfplumber not installed")
 
-        # We can't easily create a real PDF in a test.
-        # Skip for now -- covered by integration tests.
-        pytest.skip("PDF generation not supported in unit tests")
+        def _create_minimal_pdf(text: str = "Hello PDF World") -> bytes:
+            content = f"""1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]
+   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+
+4 0 obj
+<< /Length 44 >>
+stream
+BT /F1 12 Tf 100 700 Td ({text}) Tj ET
+endstream
+endobj
+
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000266 00000 n 
+0000000360 00000 n 
+
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+437
+%%EOF"""
+            return content.encode("latin-1")
+
+        pdf_bytes = _create_minimal_pdf("Test PDF content")
+        result = parse_file(pdf_bytes, "test.pdf")
+        assert "Test PDF content" in result
 
     def test_replaces_newlines_with_spaces_in_paragraphs(self):
         content = "Line 1\nLine 2\nLine 3"

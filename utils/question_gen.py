@@ -163,24 +163,32 @@ def generate_questions(
     else:
         subject_instruction = ""
 
-    # 智能截断：短文本全量用，长文本取头+中+尾的段落采样
+    # 智能截断：短文本全量用，长文本均匀抽样段落
     MAX_CHARS = 8000
     if len(text) <= MAX_CHARS:
         truncated = text
     else:
         paragraphs = [p for p in text.split('\n') if p.strip()]
-        # 取开头段落（~40%）+ 尾部段落（~30%），中间均匀抽样
-        head_end = int(len(paragraphs) * 0.4)
-        tail_start = int(len(paragraphs) * 0.7)
-        sampled = paragraphs[:head_end] + paragraphs[tail_start:]
+        num_samples = min(12, len(paragraphs))
+        if num_samples >= len(paragraphs):
+            sampled = paragraphs
+        else:
+            indices = [0]
+            step = (len(paragraphs) - 1) / (num_samples - 1)
+            for k in range(1, num_samples - 1):
+                indices.append(int(round(k * step)))
+            indices.append(len(paragraphs) - 1)
+            sampled = [paragraphs[i] for i in indices]
 
         truncated = '\n'.join(sampled)
         if len(truncated) > MAX_CHARS:
-            # 如果还是太长，从头截断到段落边界
-            truncated = text[:MAX_CHARS]
-            last_para = truncated.rfind('\n')
-            if last_para > MAX_CHARS // 2:
-                truncated = truncated[:last_para]
+            result = []
+            for p in sampled:
+                candidate = '\n'.join(result + [p])
+                if len(candidate) > MAX_CHARS:
+                    break
+                result.append(p)
+            truncated = '\n'.join(result)
 
     user_prompt = (
         f"以下是一段文本内容，请根据它生成 {num_questions} 道题。\n\n"
@@ -215,18 +223,74 @@ def generate_questions(
 
 def _repair_json(raw: str) -> str:
     """修复 LLM 返回中常见的 JSON 格式问题。"""
-    repaired = raw.strip()
-    # 1. 移除尾随逗号（数组/对象最后一个元素后的逗号）
-    repaired = re.sub(r",\s*([\]}])", r"\1", repaired)
-    # 2. 单引号键值转双引号
-    # 先把 'key': 整体替换为 "key":
-    repaired = re.sub(r"(?<!\\)'([^']*)'\s*:", r'"\1":', repaired)
-    # 再把 : 'value' 替换为 : "value"
-    repaired = re.sub(r":\s*'(.*?)'(?=[,}\]])", r': "\1"', repaired)
-    # 3. 移除注释（// 或 # 风格，不在字符串内的）
-    repaired = re.sub(r"(?<!:)\s*//[^\n]*", "", repaired)
-    repaired = re.sub(r"(?<!:)\s*#[^\n]*", "", repaired)
-    return repaired
+    s = raw.strip()
+    result = []
+    i = 0
+    n = len(s)
+    in_double = False
+    in_single = False
+
+    while i < n:
+        ch = s[i]
+
+        # Handle escape sequences inside strings
+        if ch == '\\' and (in_double or in_single):
+            if in_single and i + 1 < n and s[i + 1] == "'":
+                result.append("'")
+                i += 2
+                continue
+            result.append(ch)
+            i += 1
+            if i < n:
+                result.append(s[i])
+                i += 1
+            continue
+
+        # Handle // comments (outside strings only, skip URLs like http://)
+        if not in_double and not in_single and ch == '/' and i + 1 < n and s[i + 1] == '/':
+            if i > 0 and s[i - 1] == ':':
+                result.append(ch)
+                i += 1
+                continue
+            while i < n and s[i] != '\n':
+                i += 1
+            continue
+
+        # Handle # comments (outside strings only)
+        if not in_double and not in_single and ch == '#':
+            is_comment = i == 0 or s[i - 1] in ' \t\n\r,{['
+            if is_comment:
+                while i < n and s[i] != '\n':
+                    i += 1
+                continue
+
+        # Toggle double-quote state
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            result.append(ch)
+            i += 1
+            continue
+
+        # Convert single quotes to double quotes
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            result.append('"')
+            i += 1
+            continue
+
+        # Remove trailing commas (outside strings)
+        if not in_double and not in_single and ch == ',':
+            j = i + 1
+            while j < n and s[j] in ' \t\n\r':
+                j += 1
+            if j < n and s[j] in ']}':
+                i += 1
+                continue
+
+        result.append(ch)
+        i += 1
+
+    return ''.join(result)
 
 
 def _parse_response(raw: str) -> list[Question]:

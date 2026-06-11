@@ -32,7 +32,7 @@
   content: '';
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   background-image:
     linear-gradient(rgba(var(--glow-cyan), var(--hud-grid-opacity)) 1px, transparent 1px),
@@ -51,7 +51,7 @@ section[data-testid="stSidebar"] span { color: #d0d0e0 !important; }
   content: '';
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   background: repeating-linear-gradient(
     0deg,

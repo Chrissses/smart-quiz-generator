@@ -6,7 +6,8 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field, asdict
-from typing import Optional
+from math import ceil
+from typing import Callable, Optional
 
 from openai import OpenAI
 
@@ -99,6 +100,75 @@ DIFFICULTY_PROMPTS = {
 }
 
 
+def _chunk_text(text: str, max_chars: int = 8000, max_chunks: int = 5) -> list[str]:
+    """将长文本按段落边界切分为多个块，每块不超过 max_chars 字符。"""
+    paragraphs = [p for p in text.split('\n') if p.strip()]
+    if not paragraphs:
+        return [text]
+
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    for p in paragraphs:
+        p_len = len(p) + 1
+        if current_len + p_len > max_chars and current:
+            chunks.append('\n'.join(current))
+            current = [p]
+            current_len = p_len
+            if len(chunks) >= max_chunks:
+                break
+        else:
+            current.append(p)
+            current_len += p_len
+
+    if current:
+        chunks.append('\n'.join(current))
+
+    return chunks
+
+
+def _call_api(
+    client: OpenAI,
+    text: str,
+    num_questions: int,
+    difficulty_instruction: str,
+    type_instruction: str,
+    subject_instruction: str,
+    lang_instruction: str,
+    model: str,
+) -> list[Question]:
+    """单次调用 AI 接口生成题目，含 prompt 构建和响应解析。"""
+    user_prompt = (
+        f"以下是一段文本内容，请根据它生成 {num_questions} 道题。\n\n"
+        f"{difficulty_instruction}\n\n"
+        f"{type_instruction}\n\n"
+        f"{subject_instruction}\n\n"
+        f"{lang_instruction}\n\n"
+        f"--- 文本开始 ---\n"
+        f"{text}\n"
+        f"--- 文本结束 ---\n"
+    )
+
+    max_tokens = min(4096 + num_questions * 300, 16384)
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.7,
+            max_tokens=max_tokens,
+        )
+    except Exception as e:
+        raise RuntimeError(f"调用 AI 接口失败: {e}")
+
+    raw = response.choices[0].message.content or ""
+    return _parse_response(raw)
+
+
 def generate_questions(
     text: str,
     num_questions: int = 5,
@@ -109,6 +179,7 @@ def generate_questions(
     model: str = "gpt-4o-mini",
     language: str = "zh",
     question_types: str = "choice",  # "choice" 或 "mixed"
+    progress_callback: Optional[Callable[[str], None]] = None,
 ) -> list[Question]:
     """根据文本生成题目。
 
@@ -163,62 +234,35 @@ def generate_questions(
     else:
         subject_instruction = ""
 
-    # 智能截断：短文本全量用，长文本均匀抽样段落
+    # ── 大文档分段出题 ──
     MAX_CHARS = 8000
     if len(text) <= MAX_CHARS:
-        truncated = text
-    else:
-        paragraphs = [p for p in text.split('\n') if p.strip()]
-        num_samples = min(12, len(paragraphs))
-        if num_samples >= len(paragraphs):
-            sampled = paragraphs
-        else:
-            indices = [0]
-            step = (len(paragraphs) - 1) / (num_samples - 1)
-            for k in range(1, num_samples - 1):
-                indices.append(int(round(k * step)))
-            indices.append(len(paragraphs) - 1)
-            sampled = [paragraphs[i] for i in indices]
+        if progress_callback:
+            progress_callback("正在生成题目...")
+        return _call_api(client, text, num_questions,
+                         difficulty_instruction, type_instruction,
+                         subject_instruction, lang_instruction, model)
 
-        truncated = '\n'.join(sampled)
-        if len(truncated) > MAX_CHARS:
-            result = []
-            for p in sampled:
-                candidate = '\n'.join(result + [p])
-                if len(candidate) > MAX_CHARS:
-                    break
-                result.append(p)
-            truncated = '\n'.join(result)
+    chunks = _chunk_text(text, MAX_CHARS)
+    num_chunks = len(chunks)
+    per_chunk = max(1, ceil(num_questions / num_chunks))
 
-    user_prompt = (
-        f"以下是一段文本内容，请根据它生成 {num_questions} 道题。\n\n"
-        f"{difficulty_instruction}\n\n"
-        f"{type_instruction}\n\n"
-        f"{subject_instruction}\n\n"
-        f"{lang_instruction}\n\n"
-        f"--- 文本开始 ---\n"
-        f"{truncated}\n"
-        f"--- 文本结束 ---\n"
-    )
+    if progress_callback:
+        progress_callback(f"文档较长，已分为 {num_chunks} 段处理...")
 
-    # 根据题目数量动态调整输出 token，防止 JSON 被截断
-    max_tokens = min(4096 + num_questions * 300, 16384)
+    all_questions: list[Question] = []
+    for i, chunk in enumerate(chunks):
+        if progress_callback:
+            progress_callback(f"正在处理第 {i + 1}/{num_chunks} 段...")
+        chunk_qs = _call_api(client, chunk, per_chunk,
+                             difficulty_instruction, type_instruction,
+                             subject_instruction, lang_instruction, model)
+        all_questions.extend(chunk_qs)
 
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.7,
-            max_tokens=max_tokens,
-        )
-    except Exception as e:
-        raise RuntimeError(f"调用 AI 接口失败: {e}")
+    if len(all_questions) > num_questions:
+        all_questions = all_questions[:num_questions]
 
-    raw = response.choices[0].message.content or ""
-    return _parse_response(raw)
+    return all_questions
 
 
 def _repair_json(raw: str) -> str:

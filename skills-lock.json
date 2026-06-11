@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "quiz-generator": {
+      "source": "Chrissses/smart-quiz-generator",
+      "sourceType": "github",
+      "skillPath": "quiz-generator/SKILL.md",
+      "computedHash": "ce5c0f3db94cf8a9a690a357cdd3ba99c3093148545b09dc387c1f50db428793"
+    }
+  }
+}

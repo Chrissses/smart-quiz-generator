@@ -34,6 +34,16 @@ LOG_DIR = os.path.join(os.path.expanduser("~"), ".智能出题系统")
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_PATH = os.path.join(LOG_DIR, "启动日志.txt")
 
+# ── 修复 PyInstaller 打包后 streamlit 版本检测 ──────────
+if getattr(sys, 'frozen', False):
+    import importlib.metadata as _md
+    _orig_version = _md.version
+    def _patched_version(name):
+        if name == 'streamlit':
+            return '1.57.0'
+        return _orig_version(name)
+    _md.version = _patched_version
+
 # 加载 .env（如果有）
 from dotenv import load_dotenv
 load_dotenv()
